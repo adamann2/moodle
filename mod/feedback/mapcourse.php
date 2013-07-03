@@ -77,8 +77,30 @@ if ($coursefilter) {
              WHERE feedbackid = ? AND courseid = ?";
     if (!$DB->get_records_sql($sql, array($map->feedbackid, $map->courseid))) {
         $DB->insert_record('feedback_sitecourse_map', $map);
+
+        // ISU - Automatically add the feedback block to a mapped course.  Adds the block to the bottom of the right column.
+
+        if (isset($CFG->feedback_addblock) AND $CFG->feedback_addblock) {
+
+            // if there isn't a feedback block in the course, add one
+            $coursecontext = get_context_instance(CONTEXT_COURSE, $map->courseid);
+            if (!$DB->record_exists('block_instances', array('blockname'=>'feedback', 'parentcontextid'=>$coursecontext->id))) {
+                // create a block instance
+                $feedbackinstance = new object;
+                $feedbackinstance->blockname = 'feedback';
+                $feedbackinstance->parentcontextid = $coursecontext->id;
+                $feedbackinstance->showinsubcontexts = 0;
+                $feedbackinstance->pagetypepattern = 'course-view-*';
+                $feedbackinstance->defaultregion = 'side-post';
+                $feedbackinstance->defaultweight = $DB->count_records('block_instances', array('parentcontextid' => $coursecontext->id, 'defaultregion' => 'side-post'));
+                if (!$DB->insert_record('block_instances',$feedbackinstance)) {
+                    print_error("Couldn't add feedback block to course");
+                }
+            }
+        }
     }
 }
+
 
 /// Print the page header
 $strfeedbacks = get_string("modulenameplural", "feedback");
